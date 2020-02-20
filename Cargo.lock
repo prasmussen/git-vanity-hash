@@ -11,7 +11,7 @@ version = "0.3.55"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 
 [[package]]
-name = "git-vanity"
+name = "git-vanity-hash"
 version = "0.1.0"
 dependencies = [
  "rust-crypto 0.2.36 (registry+https://github.com/rust-lang/crates.io-index)",
