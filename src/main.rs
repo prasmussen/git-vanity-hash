@@ -2,6 +2,7 @@ use std::io;
 use std::io::Write;
 use std::string;
 use std::fmt;
+use std::env;
 use std::process::Command;
 use std::process::Stdio;
 use crypto::digest::Digest;
@@ -10,6 +11,7 @@ use crypto::sha1::Sha1;
 
 
 enum Error {
+    FailedToParseArgs(),
     FailedToGetCommitInfo(io::Error),
     FailedToReadCommitInfoStdout(string::FromUtf8Error),
     FailedToReadCommitInfoStderr(string::FromUtf8Error),
@@ -29,10 +31,8 @@ enum Error {
 }
 
 
-
-
 fn main() {
-    match run() {
+    match run(env::args()) {
         Ok(_) =>
             (),
 
@@ -42,26 +42,34 @@ fn main() {
 }
 
 
-fn run() -> Result<(), Error> {
-    let commit_info_str = get_commit_info_str()?;
+fn run(args: std::env::Args) -> Result<(), Error> {
+    let options = Options::from_args(args)
+        .ok_or(Error::FailedToParseArgs())?;
+
+    let commit_info_str = git_cat_file()?;
     let commit_info = CommitInfo::from_str(&commit_info_str)
         .ok_or(Error::FailedToParseCommitInfo())?;
 
-    let wanted_hash_prefix = String::from("0000");
-    let vanity_commit_info = find_vanity_commit_info(&commit_info, &wanted_hash_prefix)?;
+    let vanity_commit_info = find_vanity_commit_info(&commit_info, &options.wanted_prefix)?;
 
+    match options.mode {
+        Mode::Simulate() => {
+            println!("Found hash: {}", vanity_commit_info.hash());
+            Ok(())
+        },
 
-
-    println!("{}", vanity_commit_info.to_string());
-    println!("{}", vanity_commit_info.hash());
-
-    let hash = git_hash_object(&vanity_commit_info.to_string())?;
-    git_update_ref(&hash)
+        Mode::Write() => {
+            let hash = git_hash_object(&vanity_commit_info.to_string())?;
+            println!("Found hash: {}", vanity_commit_info.hash());
+            git_update_ref(&hash)?;
+            println!("Commit updated");
+            Ok(())
+        },
+    }
 }
 
 
-fn find_vanity_commit_info(commit_info: &CommitInfo, wanted_hash_prefix: &str) -> Result<CommitInfo, Error> {
-    let mut result = Err(Error::PrefixNotFound());
+fn find_vanity_commit_info(commit_info: &CommitInfo, wanted_prefix: &str) -> Result<CommitInfo, Error> {
     let vanity_header = "vanity";
 
     for n in 0..std::u32::MAX {
@@ -69,17 +77,16 @@ fn find_vanity_commit_info(commit_info: &CommitInfo, wanted_hash_prefix: &str) -
         let vanity_commit_info = commit_info.add_header(&vanity_header, &vanity_value);
         let hash = vanity_commit_info.hash();
 
-        if hash.starts_with(wanted_hash_prefix) {
-            result = Ok(vanity_commit_info);
-            break;
+        if hash.starts_with(wanted_prefix) {
+            return Ok(vanity_commit_info);
         }
     }
 
-    result
+    Err(Error::PrefixNotFound())
 }
 
 
-fn get_commit_info_str() -> Result<String, Error> {
+fn git_cat_file() -> Result<String, Error> {
     let output = Command::new("git")
         .arg("cat-file")
         .arg("commit")
@@ -155,6 +162,9 @@ fn git_update_ref(hash: &str) -> Result<(), Error> {
 
 fn print_err(err: Error) {
     match err {
+        Error::FailedToParseArgs() =>
+            println!("Usage: <simulate|write> <wanted_prefix>"),
+
         Error::FailedToGetCommitInfo(err) =>
             println!("Failed to get commit info: {}", err),
 
@@ -203,6 +213,53 @@ fn print_err(err: Error) {
         Error::UpdateRefNonZeroExitCode(err) =>
             println!("Got non-zero exit code when running git update-ref: {}", err),
     };
+}
+
+
+
+struct Options {
+    mode: Mode,
+    wanted_prefix: String,
+}
+
+
+impl Options {
+    fn from_args(mut args: std::env::Args) -> Option<Options> {
+        args.next();
+
+        let mode = args.next()
+            .and_then(|str| Mode::from_str(&str))?;
+
+        let wanted_prefix = args.next()?;
+
+        Some(Options {
+            mode,
+            wanted_prefix,
+        })
+    }
+}
+
+
+
+enum Mode {
+    Simulate(),
+    Write(),
+}
+
+
+impl Mode {
+    fn from_str(str: &str) -> Option<Mode> {
+        match str {
+            "simulate" =>
+                Some(Mode::Simulate()),
+
+            "write" =>
+                Some(Mode::Write()),
+
+            _ =>
+                None,
+        }
+    }
 }
 
 
