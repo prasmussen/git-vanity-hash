@@ -1,6 +1,7 @@
 use std::io;
 use std::io::Write;
 use std::string;
+use std::fmt;
 use std::process::Command;
 use std::process::Stdio;
 use crypto::digest::Digest;
@@ -43,7 +44,7 @@ fn main() {
 
 fn run() -> Result<(), Error> {
     let commit_info_str = get_commit_info_str()?;
-    let commit_info = new_commit_info(&commit_info_str)
+    let commit_info = CommitInfo::from_str(&commit_info_str)
         .ok_or(Error::FailedToParseCommitInfo())?;
 
     let wanted_hash_prefix = String::from("0000");
@@ -59,7 +60,7 @@ fn run() -> Result<(), Error> {
 }
 
 
-fn find_vanity_commit_info(commit_info: &CommitInfo, wanted_hash_prefix: &String) -> Result<CommitInfo, Error> {
+fn find_vanity_commit_info(commit_info: &CommitInfo, wanted_hash_prefix: &str) -> Result<CommitInfo, Error> {
     let mut result = Err(Error::PrefixNotFound());
     let vanity_header = "vanity";
 
@@ -211,12 +212,27 @@ struct CommitInfo {
     body: String,
 }
 
+impl fmt::Display for CommitInfo {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{}\n\n{}", self.headers, self.body)
+    }
+}
 
 impl CommitInfo {
-    fn to_string(&self) -> String {
-        format!("{}\n\n{}", self.headers, self.body)
-    }
+    fn from_str(str: &str) -> Option<CommitInfo> {
+        let parts: Vec<&str> = str.splitn(2, "\n\n").collect();
 
+        match *parts.as_slice() {
+            [headers, body] =>
+                Some(CommitInfo{
+                    headers: headers.to_string(),
+                    body: body.to_string(),
+                }),
+
+            _ =>
+                None,
+        }
+    }
 
     fn add_header(&self, name: &str, value: &str) -> CommitInfo {
         let new_headers = format!("{}\n{} {}", self.headers, name, value);
@@ -230,32 +246,18 @@ impl CommitInfo {
 
     fn hash(&self) -> String {
         let commit_info_str = self.to_string();
-        let commit_info_with_prefix = self.add_length_prefix(&commit_info_str);
+        let commit_info_with_prefix = CommitInfo::add_length_prefix(&commit_info_str);
 
         sha1(&commit_info_with_prefix)
     }
 
 
-    fn add_length_prefix(&self, commit_info_str: &str) -> String {
+    fn add_length_prefix(commit_info_str: &str) -> String {
         format!("commit {}{}{}", commit_info_str.len(), '\0', commit_info_str)
     }
 }
 
 
-fn new_commit_info(str: &str) -> Option<CommitInfo> {
-    let parts: Vec<&str> = str.splitn(2, "\n\n").collect();
-
-    match parts.as_slice() {
-        &[headers, body] =>
-            Some(CommitInfo{
-                headers: headers.to_string(),
-                body: body.to_string(),
-            }),
-
-        _ =>
-            None,
-    }
-}
 
 
 fn sha1(str: &str) -> String {
