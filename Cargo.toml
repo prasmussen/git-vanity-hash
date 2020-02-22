@@ -8,3 +8,4 @@ edition = "2018"
 
 [dependencies]
 rust-crypto = "0.2.36"
+num_cpus = "1.0"

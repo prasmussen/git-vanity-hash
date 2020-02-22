@@ -3,11 +3,14 @@ use std::io::Write;
 use std::string;
 use std::fmt;
 use std::env;
+use std::thread;
 use std::process;
 use std::process::Command;
 use std::process::Stdio;
+use std::sync::mpsc;
 use crypto::digest::Digest;
 use crypto::sha1::Sha1;
+use num_cpus;
 
 
 static VANITY_HEADER: &str = "vanity";
@@ -73,18 +76,72 @@ fn run(args: std::env::Args) -> Result<(), Error> {
 
 
 fn find_vanity_commit_info(commit_info: &CommitInfo, wanted_prefix: &str) -> Result<CommitInfo, Error> {
+    let mut cancel_senders = vec![];
+    let (found_sender, found_receiver) = mpsc::channel();
+
+    for i in 0..num_cpus::get() {
+        let (cancel_sender, cancel_receiver) = mpsc::channel();
+        cancel_senders.push(cancel_sender);
+
+        let options = FindOptions{
+            commit_info: commit_info.clone(),
+            wanted_prefix: wanted_prefix.to_string().clone(),
+            vanity_prefix: i,
+            found_channel: found_sender.clone(),
+            cancel_channel: cancel_receiver,
+        };
+
+        thread::spawn(move || find_vanity_commit_info_worker(options));
+    }
+
+    // Important! The receiver can get stuck forever if not dropped
+    drop(found_sender);
+
+    // Wait for a found value
+    match found_receiver.recv() {
+        Ok(vanity_commit_info) => {
+            // Stop all threads
+            for chan in cancel_senders {
+                let _ = chan.send(());
+            }
+
+            Ok(vanity_commit_info)
+        }
+
+        Err(_) =>
+            Err(Error::PrefixNotFound()),
+    }
+}
+
+
+struct FindOptions {
+    commit_info: CommitInfo,
+    wanted_prefix: String,
+    vanity_prefix: usize,
+    found_channel: mpsc::Sender<CommitInfo>,
+    cancel_channel: mpsc::Receiver<()>,
+}
+
+
+fn find_vanity_commit_info_worker(options: FindOptions) {
     for n in 0..std::u32::MAX {
-        let vanity_value = format!("{:x}", n);
-        let vanity_commit_info = commit_info.add_header(VANITY_HEADER, &vanity_value);
+        let vanity_value = format!("{}-{:x}", options.vanity_prefix, n);
+        let vanity_commit_info = options.commit_info.add_header(VANITY_HEADER, &vanity_value);
         let hash = vanity_commit_info.hash();
 
-        if hash.starts_with(wanted_prefix) {
-            return Ok(vanity_commit_info);
+        if hash.starts_with(&options.wanted_prefix) {
+            let _ = options.found_channel.send(vanity_commit_info);
+            break
+        }
+
+        if let Ok(()) = options.cancel_channel.try_recv() {
+            break
         }
     }
 
-    Err(Error::PrefixNotFound())
+    drop(options.found_channel);
 }
+
 
 enum CommandError {
     FailedToExecute(io::Error),
@@ -246,6 +303,8 @@ impl Mode {
 
 
 
+
+#[derive(Clone)]
 struct CommitInfo {
     headers: String,
     body: String,
