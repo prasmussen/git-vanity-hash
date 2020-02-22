@@ -10,6 +10,8 @@ use crypto::digest::Digest;
 use crypto::sha1::Sha1;
 
 
+static VANITY_HEADER: &str = "vanity";
+
 
 enum Error {
     FailedToParseArgs(),
@@ -41,6 +43,7 @@ fn run(args: std::env::Args) -> Result<(), Error> {
         .map_err(Error::GitCatFile)?;
 
     let commit_info = CommitInfo::from_str(&commit_info_str)
+        .map(|info| info.remove_header(VANITY_HEADER))
         .ok_or(Error::FailedToParseCommitInfo())?;
 
     let vanity_commit_info = find_vanity_commit_info(&commit_info, &options.wanted_prefix)?;
@@ -72,7 +75,7 @@ fn run(args: std::env::Args) -> Result<(), Error> {
 fn find_vanity_commit_info(commit_info: &CommitInfo, wanted_prefix: &str) -> Result<CommitInfo, Error> {
     for n in 0..std::u32::MAX {
         let vanity_value = format!("{:x}", n);
-        let vanity_commit_info = commit_info.add_header("vanity", &vanity_value);
+        let vanity_commit_info = commit_info.add_header(VANITY_HEADER, &vanity_value);
         let hash = vanity_commit_info.hash();
 
         if hash.starts_with(wanted_prefix) {
@@ -272,6 +275,19 @@ impl CommitInfo {
 
     fn add_header(&self, name: &str, value: &str) -> CommitInfo {
         let new_headers = format!("{}\n{} {}", self.headers, name, value);
+
+        CommitInfo{
+            headers: new_headers,
+            body: self.body.clone(),
+        }
+    }
+
+    fn remove_header(&self, name: &str) -> CommitInfo {
+        let new_headers = self.headers
+            .split('\n')
+            .filter(|header| !header.starts_with(name))
+            .collect::<Vec<&str>>()
+            .join("\n");
 
         CommitInfo{
             headers: new_headers,
