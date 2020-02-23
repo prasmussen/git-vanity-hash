@@ -27,8 +27,10 @@ fn main() {
         Ok(_) =>
             (),
 
-        Err(err) =>
-            println!("{}", format_error(err)),
+        Err(err) => {
+            println!("{}", format_error(err));
+            std::process::exit(1)
+        },
     };
 }
 
