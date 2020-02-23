@@ -2,7 +2,17 @@
 
 
 ## Overview
-git-vanity-hash is a command line tool creating commit hashes with a specific prefix
+git-vanity-hash is a command line tool for creating commit hashes with a specific prefix
+
+
+## FAQ
+```
+Q: Is this a good idea?
+A: No
+
+Q: Will this break git tooling?
+A: Probably (see [how it works](#how-it-works))
+```
 
 
 ## Usage
@@ -97,3 +107,8 @@ And then HEAD is changed to point to the new object with `git update-ref HEAD <h
 
 The `vanity` header will normally not show when using basic git commands, but can be seen using i.e. `git cat-file commit HEAD`.
 Note that the default git tools has support for extra headers, but there is no guarantee that this won't break 3rd tools.
+
+
+## Similar projects
+* https://github.com/mattbaker/git-vanity-sha
+* https://github.com/tochev/git-vanity
