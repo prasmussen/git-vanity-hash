@@ -62,7 +62,7 @@ fn run(args: std::env::Args) -> Result<(), Error> {
             git_update_ref(&hash)
                 .map_err(Error::GitUpdateRef)?;
 
-            println!("HEAD updated!")
+            println!("HEAD updated")
         },
     }
 
@@ -141,7 +141,7 @@ fn format_error(err: Error) -> String {
                 "    find        Find and print hash (read-only)\n",
                 "    update      Find and update HEAD with found hash\n\n",
                 "prefix\n",
-                "    A hexadecimal string that the hash should start with",
+                "    A hexadecimal string the hash should start with",
             ).to_string(),
 
         Error::FailedToParseCommitInfo() =>
