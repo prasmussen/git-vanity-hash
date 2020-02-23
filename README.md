@@ -32,6 +32,37 @@ Found hash: beefe706a9612d639e6a176703ad61bfd5f6df10
 HEAD updated
 ```
 
+###### Full example
+```
+$ git init
+Initialized empty Git repository in /Users/user/cool-project/.git/
+
+$ git add README.md
+
+$ git commit -m "Add readme"
+[master (root-commit) 6af06ae] Add readme
+ 1 file changed, 1 insertion(+)
+ create mode 100644 README.md
+
+$ PAGER=cat git log
+commit 6af06aeb70482ba69e5c85225f8c4a0e98cbd942 (HEAD -> master)
+Author: Petter Rasmussen <petter@hask.no>
+Date:   Sun Feb 23 14:11:19 2020 +0100
+
+    Add readme
+
+$ git-vanity-hash update cafe
+Found hash: cafe7f3302e66fef6428029563534ff2d8d0bc4f
+HEAD updated
+
+$ PAGER=cat git log
+commit cafe7f3302e66fef6428029563534ff2d8d0bc4f (HEAD -> master)
+Author: Petter Rasmussen <petter@hask.no>
+Date:   Sun Feb 23 14:11:19 2020 +0100
+
+    Add readme
+```
+
 
 ## How it works
 The commit object is read using `git cat-file commit HEAD`.
