@@ -103,7 +103,7 @@ And then HEAD is changed to point to the new object with `git update-ref HEAD <h
 
 
 The `vanity` header will normally not show when using basic git commands, but can be seen using i.e. `git cat-file commit HEAD`.
-Note that the default git tools has support for extra headers, but there is no guarantee that this won't break 3rd tools.
+Note that the default git tools has support for extra headers, but there is no guarantee that this won't break 3rd party tools.
 
 
 ## Similar projects
