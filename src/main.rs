@@ -80,7 +80,7 @@ fn find_vanity_commit_info(commit_info: &CommitInfo, wanted_prefix: &str) -> Res
 
         let options = WorkerOptions{
             commit_info: commit_info.clone(),
-            wanted_prefix: wanted_prefix.to_string().clone(),
+            wanted_prefix: wanted_prefix.to_string(),
             vanity_prefix: i,
             found_channel: found_sender.clone(),
             cancel_channel: cancel_receiver,
