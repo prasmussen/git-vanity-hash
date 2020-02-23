@@ -52,17 +52,17 @@ fn run(args: std::env::Args) -> Result<(), Error> {
     println!("Found hash: {}", hash);
 
     match config.mode {
-        Mode::Simulate() =>
+        Mode::Find() =>
             (),
 
-        Mode::Write() => {
+        Mode::Update() => {
             git_hash_object(&vanity_commit_info.to_string())
                 .map_err(Error::GitHashObject)?;
 
             git_update_ref(&hash)
                 .map_err(Error::GitUpdateRef)?;
 
-            println!("Commit updated")
+            println!("HEAD updated!")
         },
     }
 
@@ -135,7 +135,14 @@ fn git_hash_object(commit_info_str: &str) -> Result<String, cmd::Error> {
 fn format_error(err: Error) -> String {
     match err {
         Error::FailedToParseArgs() =>
-            "Usage: <simulate|write> <wanted_prefix>".to_string(),
+            concat!(
+                "Usage: git-vanity-hash <mode> <prefix>\n\n",
+                "mode\n",
+                "    find        Find and print hash (read-only)\n",
+                "    update      Find and update HEAD with found hash\n\n",
+                "prefix\n",
+                "    A hexadecimal string that the hash should start with",
+            ).to_string(),
 
         Error::FailedToParseCommitInfo() =>
             "Failed to parse commit info".to_string(),

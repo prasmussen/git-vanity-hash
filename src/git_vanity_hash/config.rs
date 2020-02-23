@@ -24,18 +24,18 @@ impl Config {
 
 
 pub enum Mode {
-    Simulate(),
-    Write(),
+    Find(),
+    Update(),
 }
 
 impl Mode {
     fn from_str(str: &str) -> Option<Mode> {
         match str {
-            "simulate" =>
-                Some(Mode::Simulate()),
+            "find" =>
+                Some(Mode::Find()),
 
-            "write" =>
-                Some(Mode::Write()),
+            "update" =>
+                Some(Mode::Update()),
 
             _ =>
                 None,
