@@ -121,7 +121,7 @@ fn git_cat_file() -> Result<String, cmd::Error> {
 
 
 fn git_update_ref(hash: &str) -> Result<String, cmd::Error> {
-    cmd::run("git", &["update-ref", "HEAD", hash])
+    cmd::run("git", &["update-ref", "-m", "git-vanity-hash", "HEAD", hash])
         .and_then(cmd::output_to_string)
 }
 
