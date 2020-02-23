@@ -42,7 +42,7 @@ pub struct ImmutableSearchManager<T> {
 }
 
 impl<T> ImmutableSearchManager<T> {
-    pub fn wait_for_first(self) -> Option<T> {
+    pub fn race(self) -> Option<T> {
         match self.found_rx.recv() {
             Ok(x) => {
                 self.stop_all_workers();

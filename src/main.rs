@@ -86,15 +86,15 @@ fn find_vanity_commit_info(commit_info: &CommitInfo, wanted_prefix: &str) -> Res
     }
 
     manager.to_immutable()
-        .wait_for_first()
+        .race()
         .ok_or(Error::PrefixNotFound())
 }
 
 
 struct SearchOptions {
     commit_info: CommitInfo,
-    vanity_prefix: usize,
     wanted_prefix: String,
+    vanity_prefix: usize,
 }
 
 fn find_vanity_commit_info_worker(options: SearchOptions, worker: Worker<CommitInfo>) {
