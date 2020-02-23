@@ -39,6 +39,12 @@ $ git-vanity-hash update cafe
 Updated HEAD from 6af06aeb70482ba69e5c85225f8c4a0e98cbd942 to cafe7f3302e66fef6428029563534ff2d8d0bc4f
 ```
 
+###### Revert HEAD
+```
+$ git-vanity-hash revert
+Reverted HEAD from cafe7f3302e66fef6428029563534ff2d8d0bc4f to 6af06aeb70482ba69e5c85225f8c4a0e98cbd942
+```
+
 ###### Full example
 ```
 $ git init
