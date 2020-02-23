@@ -2,11 +2,11 @@ mod git_vanity_hash;
 
 use std::env;
 use std::thread;
-use std::sync::mpsc;
 use num_cpus;
 use git_vanity_hash::config::{Config, Mode};
 use git_vanity_hash::commit_info::CommitInfo;
 use git_vanity_hash::cmd;
+use git_vanity_hash::search_manager::{SearchManager, Worker};
 
 
 static VANITY_HEADER: &str = "vanity";
@@ -71,64 +71,43 @@ fn run(args: std::env::Args) -> Result<(), Error> {
 
 
 fn find_vanity_commit_info(commit_info: &CommitInfo, wanted_prefix: &str) -> Result<CommitInfo, Error> {
-    let mut cancel_senders = vec![];
-    let (found_sender, found_receiver) = mpsc::channel();
+    let mut manager = SearchManager::new();
 
     for i in 0..num_cpus::get() {
-        let (cancel_sender, cancel_receiver) = mpsc::channel();
-        cancel_senders.push(cancel_sender);
+        let worker = manager.new_worker();
 
-        let options = WorkerOptions{
+        let options = SearchOptions{
             commit_info: commit_info.clone(),
             wanted_prefix: wanted_prefix.to_string(),
             vanity_prefix: i,
-            found_channel: found_sender.clone(),
-            cancel_channel: cancel_receiver,
         };
 
-        thread::spawn(move || find_vanity_commit_info_worker(options));
+        thread::spawn(move || find_vanity_commit_info_worker(options, worker));
     }
 
-    // Important! The receiver can get stuck forever if not dropped
-    drop(found_sender);
-
-    // Wait for a found value
-    match found_receiver.recv() {
-        Ok(vanity_commit_info) => {
-            // Stop all threads
-            for chan in cancel_senders {
-                let _ = chan.send(());
-            }
-
-            Ok(vanity_commit_info)
-        }
-
-        Err(_) =>
-            Err(Error::PrefixNotFound()),
-    }
+    manager.to_immutable()
+        .wait_for_first()
+        .ok_or(Error::PrefixNotFound())
 }
 
 
-struct WorkerOptions {
+struct SearchOptions {
     commit_info: CommitInfo,
-    wanted_prefix: String,
     vanity_prefix: usize,
-    found_channel: mpsc::Sender<CommitInfo>,
-    cancel_channel: mpsc::Receiver<()>,
+    wanted_prefix: String,
 }
 
-fn find_vanity_commit_info_worker(options: WorkerOptions) {
+fn find_vanity_commit_info_worker(options: SearchOptions, worker: Worker<CommitInfo>) {
     for n in 0..std::u32::MAX {
         let vanity_value = format!("{}-{:x}", options.vanity_prefix, n);
-        let vanity_commit_info = options.commit_info.add_header(VANITY_HEADER, &vanity_value);
-        let hash = vanity_commit_info.hash();
+        let commit_info = options.commit_info.add_header(VANITY_HEADER, &vanity_value);
 
-        if hash.starts_with(&options.wanted_prefix) {
-            let _ = options.found_channel.send(vanity_commit_info);
+        if commit_info.hash().starts_with(&options.wanted_prefix) {
+            worker.found(commit_info);
             break
         }
 
-        if let Ok(()) = options.cancel_channel.try_recv() {
+        if worker.should_stop() {
             break
         }
     }
