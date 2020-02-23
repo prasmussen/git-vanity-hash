@@ -19,6 +19,7 @@ git-vanity-hash <mode> <prefix>
 mode
     find        Find and print hash (read-only)
     update      Find and update HEAD with found hash
+    revert      Revert HEAD back to original commit
 
 prefix
     A hexadecimal string the hash should start with
@@ -29,14 +30,13 @@ prefix
 ###### Find hash
 ```
 $ git-vanity-hash find cafe
-Found hash: cafeacc13453e3d5a3fc8d0c57bccc702e92917f
+Found hash: cafe7f3302e66fef6428029563534ff2d8d0bc4f
 ```
 
 ###### Update HEAD
 ```
-$ git-vanity-hash update beef
-Found hash: beefe706a9612d639e6a176703ad61bfd5f6df10
-HEAD updated
+$ git-vanity-hash update cafe
+Updated HEAD from 6af06aeb70482ba69e5c85225f8c4a0e98cbd942 to cafe7f3302e66fef6428029563534ff2d8d0bc4f
 ```
 
 ###### Full example
@@ -59,8 +59,7 @@ Date:   Sun Feb 23 14:11:19 2020 +0100
     Add readme
 
 $ git-vanity-hash update cafe
-Found hash: cafe7f3302e66fef6428029563534ff2d8d0bc4f
-HEAD updated
+Updated HEAD from 6af06aeb70482ba69e5c85225f8c4a0e98cbd942 to cafe7f3302e66fef6428029563534ff2d8d0bc4f
 
 $ PAGER=cat git log
 commit cafe7f3302e66fef6428029563534ff2d8d0bc4f (HEAD -> master)

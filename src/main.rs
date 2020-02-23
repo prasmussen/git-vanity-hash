@@ -50,14 +50,13 @@ fn run(args: std::env::Args) -> Result<(), Error> {
         },
 
         Mode::Update(wanted_prefix) => {
-            let hash = update(&wanted_prefix)?;
-            println!("Found hash: {}", hash);
-            println!("HEAD updated")
+            let change = update(&wanted_prefix)?;
+            println!("Updated HEAD from {} to {}", change.head_before, change.head_now);
         },
 
         Mode::Revert() => {
-            let result = revert()?;
-            println!("Reverted HEAD from {} to {}", result.head_before, result.head_now);
+            let change = revert()?;
+            println!("Reverted HEAD from {} to {}", change.head_before, change.head_now);
         },
     }
 
@@ -77,26 +76,32 @@ fn find(wanted_prefix: &str) -> Result<CommitInfo, Error> {
 }
 
 
-fn update(wanted_prefix: &str) -> Result<String, Error> {
+fn update(wanted_prefix: &str) -> Result<HeadChange, Error> {
     let commit_info = find(wanted_prefix)?;
-    let hash = commit_info.hash();
+    let old_hash = git_show_commit_hash("HEAD")
+        .map_err(Error::GitShowCommitHash)?;
+    let new_hash = commit_info.hash();
 
     git_hash_object(&commit_info.to_string())
         .map_err(Error::GitHashObject)?;
 
-    git_update_ref(&hash, "git-vanity-hash: update")
+    git_update_ref(&new_hash, "git-vanity-hash: update")
         .map_err(Error::GitUpdateRef)?;
 
-    Ok(hash)
+
+    Ok(HeadChange{
+        head_now: new_hash,
+        head_before: old_hash,
+    })
 }
 
 
-struct RevertResult {
+struct HeadChange {
     head_now: String,
     head_before: String,
 }
 
-fn revert() -> Result<RevertResult, Error> {
+fn revert() -> Result<HeadChange, Error> {
     let current_str = git_cat_file("HEAD")
         .map_err(Error::GitCatFile)?;
 
@@ -119,18 +124,18 @@ fn revert() -> Result<RevertResult, Error> {
         Error::CannotRevertToPrevious()
     )?;
 
-    let current_hash = git_show_commit_hash("HEAD")
+    let old_hash = git_show_commit_hash("HEAD")
         .map_err(Error::GitShowCommitHash)?;
 
-    let previous_hash = git_show_commit_hash("HEAD@{1}")
+    let new_hash = git_show_commit_hash("HEAD@{1}")
         .map_err(Error::GitShowCommitHash)?;
 
-    git_update_ref(&previous_hash, "git-vanity-hash: revert")
+    git_update_ref(&new_hash, "git-vanity-hash: revert")
         .map_err(Error::GitUpdateRef)?;
 
-    Ok(RevertResult{
-        head_now: previous_hash,
-        head_before: current_hash,
+    Ok(HeadChange{
+        head_now: new_hash,
+        head_before: old_hash,
     })
 }
 
@@ -211,7 +216,8 @@ fn format_error(err: Error) -> String {
                 "Usage: git-vanity-hash <mode> <prefix>\n\n",
                 "mode\n",
                 "    find        Find and print hash (read-only)\n",
-                "    update      Find and update HEAD with found hash\n\n",
+                "    update      Find and update HEAD with found hash\n",
+                "    revert      Revert HEAD back to original commit\n\n",
                 "prefix\n",
                 "    A hexadecimal string the hash should start with",
             ).to_string(),
