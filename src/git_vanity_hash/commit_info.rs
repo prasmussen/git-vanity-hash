@@ -53,12 +53,16 @@ impl CommitInfo {
         }
     }
 
+    pub fn has_header(&self, name: &str) -> bool {
+        self.headers
+            .split('\n')
+            .filter(|header| header.starts_with(name))
+            .count() > 0
+    }
 
     pub fn hash(&self) -> String {
-        let commit_info_str = self.to_string();
-        let commit_info_with_prefix = CommitInfo::add_length_prefix(&commit_info_str);
-
-        sha1(&commit_info_with_prefix)
+        let str = CommitInfo::add_length_prefix(&self.to_string());
+        sha1(&str)
     }
 
 

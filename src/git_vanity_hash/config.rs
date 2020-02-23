@@ -2,21 +2,34 @@
 
 pub struct Config {
     pub mode: Mode,
-    pub wanted_prefix: String,
 }
 
 impl Config {
     pub fn from_args(mut args: std::env::Args) -> Option<Config> {
         args.next();
 
-        let mode = args.next()
-            .and_then(|str| Mode::from_str(&str))?;
+        let mode_str = args.next()?;
 
-        let wanted_prefix = args.next()?;
+        let mode = match &mode_str[..] {
+            "find" => {
+                let wanted_prefix = args.next()?;
+                Some(Mode::Find(wanted_prefix))
+            },
+
+            "update" => {
+                let wanted_prefix = args.next()?;
+                Some(Mode::Update(wanted_prefix))
+            },
+
+            "revert" =>
+                Some(Mode::Revert()),
+
+            _ =>
+                None,
+        }?;
 
         Some(Config {
             mode,
-            wanted_prefix,
         })
     }
 }
@@ -24,21 +37,7 @@ impl Config {
 
 
 pub enum Mode {
-    Find(),
-    Update(),
-}
-
-impl Mode {
-    fn from_str(str: &str) -> Option<Mode> {
-        match str {
-            "find" =>
-                Some(Mode::Find()),
-
-            "update" =>
-                Some(Mode::Update()),
-
-            _ =>
-                None,
-        }
-    }
+    Find(String),
+    Update(String),
+    Revert(),
 }

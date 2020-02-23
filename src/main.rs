@@ -16,9 +16,12 @@ enum Error {
     FailedToParseArgs(),
     FailedToParseCommitInfo(),
     PrefixNotFound(),
+    NothingToRevert(),
+    CannotRevertToPrevious(),
     GitCatFile(cmd::Error),
     GitHashObject(cmd::Error),
     GitUpdateRef(cmd::Error),
+    GitShowCommitHash(cmd::Error),
 }
 
 
@@ -39,34 +42,96 @@ fn run(args: std::env::Args) -> Result<(), Error> {
     let config = Config::from_args(args)
         .ok_or(Error::FailedToParseArgs())?;
 
-    let commit_info_str = git_cat_file()
+
+    match config.mode {
+        Mode::Find(wanted_prefix) => {
+            let commit_info = find(&wanted_prefix)?;
+            println!("Found hash: {}", commit_info.hash())
+        },
+
+        Mode::Update(wanted_prefix) => {
+            let hash = update(&wanted_prefix)?;
+            println!("Found hash: {}", hash);
+            println!("HEAD updated")
+        },
+
+        Mode::Revert() => {
+            let result = revert()?;
+            println!("Reverted HEAD from {} to {}", result.head_before, result.head_now);
+        },
+    }
+
+    Ok(())
+}
+
+
+fn find(wanted_prefix: &str) -> Result<CommitInfo, Error> {
+    let commit_info_str = git_cat_file("HEAD")
         .map_err(Error::GitCatFile)?;
 
     let commit_info = CommitInfo::from_str(&commit_info_str)
         .map(|info| info.remove_header(VANITY_HEADER))
         .ok_or(Error::FailedToParseCommitInfo())?;
 
-    let vanity_commit_info = find_vanity_commit_info(&commit_info, &config.wanted_prefix)?;
-    let hash = vanity_commit_info.hash();
+    find_vanity_commit_info(&commit_info, wanted_prefix)
+}
 
-    println!("Found hash: {}", hash);
 
-    match config.mode {
-        Mode::Find() =>
-            (),
+fn update(wanted_prefix: &str) -> Result<String, Error> {
+    let commit_info = find(wanted_prefix)?;
+    let hash = commit_info.hash();
 
-        Mode::Update() => {
-            git_hash_object(&vanity_commit_info.to_string())
-                .map_err(Error::GitHashObject)?;
+    git_hash_object(&commit_info.to_string())
+        .map_err(Error::GitHashObject)?;
 
-            git_update_ref(&hash)
-                .map_err(Error::GitUpdateRef)?;
+    git_update_ref(&hash, "git-vanity-hash: update")
+        .map_err(Error::GitUpdateRef)?;
 
-            println!("HEAD updated")
-        },
-    }
+    Ok(hash)
+}
 
-    Ok(())
+
+struct RevertResult {
+    head_now: String,
+    head_before: String,
+}
+
+fn revert() -> Result<RevertResult, Error> {
+    let current_str = git_cat_file("HEAD")
+        .map_err(Error::GitCatFile)?;
+
+    let current = CommitInfo::from_str(&current_str)
+        .ok_or(Error::FailedToParseCommitInfo())?;
+
+    err_if_false(
+        current.has_header(VANITY_HEADER),
+        Error::NothingToRevert()
+    )?;
+
+    let previous_str = git_cat_file("HEAD@{1}")
+        .map_err(Error::GitCatFile)?;
+
+    let previous = CommitInfo::from_str(&previous_str)
+        .ok_or(Error::FailedToParseCommitInfo())?;
+
+    err_if_false(
+        current.remove_header(VANITY_HEADER).to_string() == previous.to_string(),
+        Error::CannotRevertToPrevious()
+    )?;
+
+    let current_hash = git_show_commit_hash("HEAD")
+        .map_err(Error::GitShowCommitHash)?;
+
+    let previous_hash = git_show_commit_hash("HEAD@{1}")
+        .map_err(Error::GitShowCommitHash)?;
+
+    git_update_ref(&previous_hash, "git-vanity-hash: revert")
+        .map_err(Error::GitUpdateRef)?;
+
+    Ok(RevertResult{
+        head_now: previous_hash,
+        head_before: current_hash,
+    })
 }
 
 
@@ -114,14 +179,14 @@ fn find_vanity_commit_info_worker(options: SearchOptions, worker: Worker<CommitI
 }
 
 
-fn git_cat_file() -> Result<String, cmd::Error> {
-    cmd::run("git", &["cat-file", "commit", "HEAD"])
+fn git_cat_file(rev: &str) -> Result<String, cmd::Error> {
+    cmd::run("git", &["cat-file", "commit", rev])
         .and_then(cmd::output_to_string)
 }
 
 
-fn git_update_ref(hash: &str) -> Result<String, cmd::Error> {
-    cmd::run("git", &["update-ref", "-m", "git-vanity-hash", "HEAD", hash])
+fn git_update_ref(hash: &str, message: &str) -> Result<String, cmd::Error> {
+    cmd::run("git", &["update-ref", "-m", message, "HEAD", hash])
         .and_then(cmd::output_to_string)
 }
 
@@ -129,6 +194,13 @@ fn git_update_ref(hash: &str) -> Result<String, cmd::Error> {
 fn git_hash_object(commit_info_str: &str) -> Result<String, cmd::Error> {
     cmd::run_with_stdin("git", &["hash-object", "-t", "commit", "-w", "--stdin"], commit_info_str)
         .and_then(cmd::output_to_string)
+}
+
+
+fn git_show_commit_hash(rev: &str) -> Result<String, cmd::Error> {
+    cmd::run("git", &["show", "-s", "--format=%H", rev])
+        .and_then(cmd::output_to_string)
+        .map(|str| str.trim_end().to_string())
 }
 
 
@@ -150,6 +222,12 @@ fn format_error(err: Error) -> String {
         Error::PrefixNotFound() =>
             "Prefix not found".to_string(),
 
+        Error::NothingToRevert() =>
+            "Nothing to revert. HEAD commit does not have a vanity header".to_string(),
+
+        Error::CannotRevertToPrevious() =>
+            "Can't revert. HEAD does not match HEAD@{1}".to_string(),
+
         Error::GitCatFile(err) =>
             format!("git cat-file failed: {}", format_command_error(err)),
 
@@ -158,6 +236,9 @@ fn format_error(err: Error) -> String {
 
         Error::GitHashObject(err) =>
             format!("git hash-object failed: {}", format_command_error(err)),
+
+        Error::GitShowCommitHash(err) =>
+            format!("git show failed: {}", format_command_error(err)),
     }
 }
 
@@ -191,5 +272,14 @@ fn format_command_error(err: cmd::Error) -> String {
 
         cmd::Error::FailedToWaitForChild(err) =>
             format!("Failed to wait for child process: {}", err),
+    }
+}
+
+
+fn err_if_false<E>(value: bool, err: E) -> Result<(), E> {
+    if value {
+        Ok(())
+    } else {
+        Err(err)
     }
 }
