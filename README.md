@@ -6,13 +6,10 @@ git-vanity-hash is a command line tool for creating commit hashes with a specifi
 
 
 ## FAQ
-```
-Q: Is this a good idea?
-A: No
-
-Q: Will this break git tooling?
-A: Probably (see [how it works](#how-it-works))
-```
+| Question                      | Answer                                         |
+| ------------------------------|------------------------------------------------|
+| Is this a good idea?          | No                                             |
+| Will this break git tooling?  | Probably (see [how it works](#how-it-works))   |
 
 
 ## Usage
