@@ -132,8 +132,6 @@ fn find_vanity_commit_info_worker(options: WorkerOptions) {
             break
         }
     }
-
-    drop(options.found_channel);
 }
 
 
