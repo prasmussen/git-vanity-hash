@@ -168,7 +168,7 @@ struct SearchOptions {
 }
 
 fn find_vanity_commit_info_worker(options: SearchOptions, worker: Worker<CommitInfo>) {
-    for n in 0..std::u64::MAX {
+    for n in 0..std::u128::MAX {
         let vanity_value = format!("{}-{:x}", options.vanity_prefix, n);
         let commit_info = options.commit_info.add_header(VANITY_HEADER, &vanity_value);
 
