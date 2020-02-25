@@ -25,9 +25,9 @@ impl<T> SearchManager<T> {
         Worker::new(cancel_receiver, self.found_tx.clone())
     }
 
-    // This drops the found_rx channel which is important
+    // This drops the found_tx channel which is important
     // because otherwise the receiver could block forever
-    pub fn to_immutable(self) -> ImmutableSearchManager<T> {
+    pub fn immutable(self) -> ImmutableSearchManager<T> {
         ImmutableSearchManager{
             workers: self.workers,
             found_rx: self.found_rx,

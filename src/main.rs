@@ -155,7 +155,7 @@ fn find_vanity_commit_info(commit_info: &CommitInfo, wanted_prefix: &str) -> Res
         thread::spawn(move || find_vanity_commit_info_worker(options, worker));
     }
 
-    manager.to_immutable()
+    manager.immutable()
         .race()
         .ok_or(Error::PrefixNotFound())
 }
