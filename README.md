@@ -2,7 +2,8 @@
 
 
 ## Overview
-git-vanity-hash is a command line tool for creating commit hashes with a specific prefix
+git-vanity-hash is a command line tool for creating commit hashes with a specific prefix.
+Hashes are computed on the cpu using all available cores.
 
 
 ## FAQ
@@ -14,7 +15,7 @@ git-vanity-hash is a command line tool for creating commit hashes with a specifi
 
 ## Usage
 ```
-git-vanity-hash <mode> <prefix>
+git-vanity-hash <mode> [prefix]
 
 mode
     find        Find and print hash (read-only)
