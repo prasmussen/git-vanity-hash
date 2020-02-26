@@ -19,10 +19,10 @@ impl<T> SearchManager<T> {
     }
 
     pub fn new_worker(&mut self) -> Worker<T> {
-        let (cancel_sender, cancel_receiver) = mpsc::channel();
-        self.workers.push(cancel_sender);
+        let (cancel_tx, cancel_rx) = mpsc::channel();
+        self.workers.push(cancel_tx);
 
-        Worker::new(cancel_receiver, self.found_tx.clone())
+        Worker::new(cancel_rx, self.found_tx.clone())
     }
 
     // This drops the found_tx channel which is important
