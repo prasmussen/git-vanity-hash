@@ -16,6 +16,7 @@ enum Error {
     FailedToParseArgs(),
     FailedToParseCommitInfo(),
     PrefixNotFound(),
+    PrefixNotPossible,
     NothingToRevert(),
     CannotRevertToPrevious(),
     GitCatFile(cmd::Error),
@@ -75,8 +76,14 @@ fn find(wanted_prefix: &str) -> Result<CommitInfo, Error> {
     find_vanity_commit_info(&commit_info, wanted_prefix)
 }
 
+fn check_is_hex(prefix: &str) -> bool {
+    prefix.chars().all(|c| c.is_ascii_hexdigit())
+}
 
 fn update(wanted_prefix: &str) -> Result<HeadChange, Error> {
+    if !check_is_hex(wanted_prefix) {
+        return Err(Error::PrefixNotPossible)
+    }
     let commit_info = find(wanted_prefix)?;
     let old_hash = git_show_commit_hash("HEAD")
         .map_err(Error::GitShowCommitHash)?;
@@ -227,6 +234,9 @@ fn format_error(err: Error) -> String {
 
         Error::PrefixNotFound() =>
             "Prefix not found".to_string(),
+
+        Error::PrefixNotPossible =>
+            "Prefix cannot be represented as hex".to_string(),
 
         Error::NothingToRevert() =>
             "Nothing to revert. HEAD commit does not have a vanity header".to_string(),
