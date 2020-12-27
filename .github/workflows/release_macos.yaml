@@ -6,7 +6,7 @@ on:
 
 env:
   APP_NAME: git-vanity-hash
-  ARCHIVE_NAME: git-vanity-hash_linux-x64.tar.gz
+  ARCHIVE_NAME: git-vanity-hash_macos-x64.tar.gz
 
 jobs:
   build:
