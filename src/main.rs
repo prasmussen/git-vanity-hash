@@ -2,7 +2,6 @@ mod git_vanity_hash;
 
 use std::env;
 use std::thread;
-use num_cpus;
 use git_vanity_hash::config::{self, Config, Mode};
 use git_vanity_hash::commit_info::CommitInfo;
 use git_vanity_hash::cmd;
