@@ -3,7 +3,7 @@ mod git_vanity_hash;
 use std::env;
 use std::thread;
 use num_cpus;
-use git_vanity_hash::config::{Config, Mode};
+use git_vanity_hash::config::{self, Config, Mode};
 use git_vanity_hash::commit_info::CommitInfo;
 use git_vanity_hash::cmd;
 use git_vanity_hash::search_manager::{SearchManager, Worker};
@@ -13,10 +13,9 @@ static VANITY_HEADER: &str = "vanity";
 
 
 enum Error {
-    FailedToParseArgs(),
+    FailedToParseArgs(config::Error),
     FailedToParseCommitInfo(),
     PrefixNotFound(),
-    PrefixNotPossible,
     NothingToRevert(),
     CannotRevertToPrevious(),
     GitCatFile(cmd::Error),
@@ -41,8 +40,7 @@ fn main() {
 
 fn run(args: std::env::Args) -> Result<(), Error> {
     let config = Config::from_args(args)
-        .ok_or(Error::FailedToParseArgs())?;
-
+        .map_err(Error::FailedToParseArgs)?;
 
     match config.mode {
         Mode::Find(wanted_prefix) => {
@@ -76,14 +74,7 @@ fn find(wanted_prefix: &str) -> Result<CommitInfo, Error> {
     find_vanity_commit_info(&commit_info, wanted_prefix)
 }
 
-fn check_is_hex(prefix: &str) -> bool {
-    prefix.chars().all(|c| c.is_ascii_hexdigit())
-}
-
 fn update(wanted_prefix: &str) -> Result<HeadChange, Error> {
-    if !check_is_hex(wanted_prefix) {
-        return Err(Error::PrefixNotPossible)
-    }
     let commit_info = find(wanted_prefix)?;
     let old_hash = git_show_commit_hash("HEAD")
         .map_err(Error::GitShowCommitHash)?;
@@ -216,27 +207,28 @@ fn git_show_commit_hash(rev: &str) -> Result<String, cmd::Error> {
 }
 
 
+fn usage() -> String {
+    concat!(
+        "Usage: git-vanity-hash <mode> <prefix>\n\n",
+        "mode\n",
+        "    find        Find and print hash (read-only)\n",
+        "    update      Find and update HEAD with found hash\n",
+        "    revert      Revert HEAD back to original commit\n\n",
+        "prefix\n",
+        "    A hexadecimal string the hash should start with",
+    ).to_string()
+}
+
 fn format_error(err: Error) -> String {
     match err {
-        Error::FailedToParseArgs() =>
-            concat!(
-                "Usage: git-vanity-hash <mode> <prefix>\n\n",
-                "mode\n",
-                "    find        Find and print hash (read-only)\n",
-                "    update      Find and update HEAD with found hash\n",
-                "    revert      Revert HEAD back to original commit\n\n",
-                "prefix\n",
-                "    A hexadecimal string the hash should start with",
-            ).to_string(),
+        Error::FailedToParseArgs(config_err) =>
+            format!("Error: {}\n\n{}", config_err, usage()),
 
         Error::FailedToParseCommitInfo() =>
             "Failed to parse commit info".to_string(),
 
         Error::PrefixNotFound() =>
             "Prefix not found".to_string(),
-
-        Error::PrefixNotPossible =>
-            "Prefix cannot be represented as hex".to_string(),
 
         Error::NothingToRevert() =>
             "Nothing to revert. HEAD commit does not have a vanity header".to_string(),
