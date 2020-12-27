@@ -1,4 +1,4 @@
-name: Build and upload release
+name: Build and upload release (linux)
 
 on:
   release:
