@@ -1,6 +1,5 @@
 use std::fmt;
-use crypto::digest::Digest;
-use crypto::sha1::Sha1;
+use sha1::{Sha1, Digest};
 
 
 #[derive(Clone)]
@@ -72,12 +71,10 @@ impl CommitInfo {
 }
 
 
-
-
 fn sha1(str: &str) -> String {
     let mut hasher = Sha1::new();
 
-    hasher.input_str(str);
-    hasher.result_str()
+    hasher.update(str.as_bytes());
+    format!("{:x}", hasher.finalize())
 }
 
